@@ -15,7 +15,8 @@ function durationFor(model, seconds) {
 }
 
 function paramsFor(scene, style) {
-  const promptText = style ? `${scene.prompt}. Style: ${style}` : scene.prompt;
+  const framing = 'Full-frame vertical 9:16 composition, no letterbox or black bars';
+  const promptText = [scene.prompt, style && `Style: ${style}`, framing].filter(Boolean).join('. ');
   const base = {
     model: scene.model,
     promptText,
