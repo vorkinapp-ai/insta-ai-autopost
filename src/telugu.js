@@ -17,7 +17,15 @@ const STORIES = path.join(root, 'telugu-stories/stories.json');
 const LOG = path.join(root, 'telugu-posted.json');
 const FONTS = path.join(root, 'assets/fonts');
 const VOICE = process.env.TELUGU_VOICE || 'Arjun';
-const HASHTAGS = '#telugu #telugustories #telugumotivation #teluguquotes #moralstories #motivation #inspiration #modernstoriez';
+// Relevant tags per category (Instagram ranks posts whose tags match the content; ~8-10 focused tags beat 30 random ones).
+const CORE_TAGS = '#telugu #telugustories #telugukathalu #telugureels #modernstoriez';
+const CATEGORY_TAGS = {
+  motivation: '#telugumotivation #motivationaltelugu #teluguquotes #lifelessons #successstory',
+  moral: '#moralstories #neethikathalu #telugumoralstories #kidsstories #lifelessons',
+  family: '#amma #nanna #emotionalstory #familylove #teluguemotional',
+  comedy: '#telugucomedy #tenaliramakrishna #funnystories #telugufun #comedyreels',
+};
+const hashtagsFor = (s) => `${CATEGORY_TAGS[s.category] || CATEGORY_TAGS.motivation} ${CORE_TAGS}`;
 // Two-colour backgrounds, picked by story number so consecutive posts look different.
 const PALETTES = [
   ['0x0f2027', '0x2c5364'], ['0x1a1a2e', '0x16213e'], ['0x141e30', '0x243b55'], ['0x2c3e50', '0x000000'],
@@ -90,9 +98,31 @@ const ts = (t) => {
   return `${h}:${String(m).padStart(2, '0')}:${s}`;
 };
 
-function assFile(story, cues, total) {
+const BRAND_TE = 'మోడర్న్ కథలు';
+const BRAND_EN = 'MODERN STORIES';
+
+// storyEnd = when narration stops and the "thanks for watching" end card starts.
+function assFile(story, cues, total, storyEnd) {
   const esc = (t) => t.replace(/[{}]/g, '').replace(/\n/g, '\\N');
-  const lines = cues.map((c) => `Dialogue: 0,${ts(c.start)},${ts(c.end)},Main,,0,0,0,,{\\fad(250,200)}${esc(c.text)}`);
+  const lines = cues.map((c) => `Dialogue: 1,${ts(c.start)},${ts(Math.min(c.end, storyEnd))},Main,,0,0,0,,{\\fad(250,200)}${esc(c.text)}`);
+  const ms = Math.round(total * 1000);
+  const box = (x1, y1, x2, y2) => `m ${x1} ${y1} l ${x2} ${y1} l ${x2} ${y2} l ${x1} ${y2}`;
+  const branding = [
+    // Top banner: dark translucent bar with gold accent line + brand name (same on every video).
+    `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,0)\\p1\\1c&H000000&\\1a&H50&}${box(0, 0, 1080, 230)}{\\p0}`,
+    `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,230)\\p1\\1c&H00C8FF&\\1a&H00&}${box(0, 0, 1080, 6)}{\\p0}`,
+    `Dialogue: 1,${ts(0)},${ts(total)},Brand,,0,0,0,,{\\pos(540,95)}${BRAND_TE}`,
+    `Dialogue: 1,${ts(0)},${ts(total)},BrandSub,,0,0,0,,{\\pos(540,170)}${BRAND_EN}  •  TELUGU KATHALU`,
+    `Dialogue: 1,${ts(0)},${ts(storyEnd)},Title,,0,0,0,,${esc(story.title)}`,
+    // Progress bar along the bottom fills up over the whole video.
+    `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&HFFFFFF&\\1a&HB0&}${box(0, 0, 1080, 16)}{\\p0}`,
+    `Dialogue: 1,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&H00C8FF&\\fscx0\\t(0,${ms},\\fscx100)}${box(0, 0, 1080, 16)}{\\p0}`,
+    `Dialogue: 1,${ts(0)},${ts(total)},Handle,,0,0,0,,@modern.storiez`,
+    // End card.
+    `Dialogue: 2,${ts(storyEnd)},${ts(total)},EndBig,,0,0,0,,{\\fad(300,0)}చూసినందుకు\\Nధన్యవాదాలు`,
+    `Dialogue: 2,${ts(storyEnd + 0.4)},${ts(total)},EndCta,,0,0,0,,{\\fad(300,0)}LIKE  •  SHARE  •  FOLLOW`,
+    `Dialogue: 2,${ts(storyEnd + 0.8)},${ts(total)},EndSmall,,0,0,0,,{\\fad(300,0)}ఇలాంటి మరిన్ని కథల కోసం ఫాలో అవ్వండి`,
+  ];
   return `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -102,13 +132,18 @@ WrapStyle: 0
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Main,Noto Sans Telugu,76,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,5,100,100,0,1
-Style: Title,Noto Sans Telugu,58,&H0000D7FF,&H0000D7FF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,8,80,80,260,1
-Style: Handle,Noto Sans Telugu,40,&H80FFFFFF,&H80FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,2,80,80,170,1
+Style: Title,Noto Sans Telugu,60,&H0000D7FF,&H0000D7FF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,8,80,80,300,1
+Style: Brand,Noto Sans Telugu,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: BrandSub,Noto Sans Telugu,30,&H0000C8FF,&H0000C8FF,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,0,0,5,0,0,0,1
+Style: Shape,Noto Sans Telugu,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+Style: Handle,Noto Sans Telugu,40,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,2,80,80,70,1
+Style: EndBig,Noto Sans Telugu,96,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,3,5,80,80,160,1
+Style: EndCta,Noto Sans Telugu,58,&H0000C8FF,&H0000C8FF,&H00000000,&H80000000,1,0,0,0,100,100,4,0,1,3,2,5,80,80,-140,1
+Style: EndSmall,Noto Sans Telugu,46,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,5,80,80,-290,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,${ts(0)},${ts(total)},Title,,0,0,0,,${esc(story.title)}
-Dialogue: 0,${ts(0)},${ts(total)},Handle,,0,0,0,,@modern.storiez
+${branding.join('\n')}
 ${lines.join('\n')}
 `;
 }
@@ -117,17 +152,21 @@ async function render(story, n, workDir) {
   const audio = path.join(workDir, 'voice.mp3');
   console.log(`  voice (${VOICE}, ~${estCredits(story)} credits)…`);
   await narrate(story, audio);
-  const total = (await duration(audio)) + 1.2;
-  const cues = await timings(story, audio, total - 1.2);
+  const voiceLen = await duration(audio);
+  const storyEnd = voiceLen + 0.8;
+  const outro = path.join(root, 'assets/audio/outro-te.mp3');
+  const total = storyEnd + (await duration(outro)) + 1.0;
+  const cues = await timings(story, audio, voiceLen);
   const assPath = path.join(workDir, 'captions.ass');
-  await writeFile(assPath, assFile(story, cues, total));
+  await writeFile(assPath, assFile(story, cues, total, storyEnd));
   const [c0, c1] = PALETTES[n % PALETTES.length];
   const out = path.join(workDir, 'final.mp4');
   console.log('  rendering video…');
   const { code, err } = await ff([
     '-y', '-f', 'lavfi', '-i', `gradients=s=1080x1920:c0=${c0}:c1=${c1}:speed=0.015:d=${total}:r=30`,
-    '-i', audio,
-    '-filter_complex', `[0:v]ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')},format=yuv420p[v];[1:a]apad,atrim=0:${total},aresample=48000[a]`,
+    '-i', audio, '-i', outro,
+    '-filter_complex', `[0:v]ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')},format=yuv420p[v];` +
+      `[1:a]aresample=48000,apad=whole_dur=${storyEnd}[s];[2:a]aresample=48000[o];[s][o]concat=n=2:v=0:a=1,apad,atrim=0:${total}[a]`,
     '-map', '[v]', '-map', '[a]', '-t', String(total),
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-movflags', '+faststart', out,
   ]);
@@ -162,7 +201,7 @@ async function main() {
   if (flag('--dry-run')) return;
 
   console.log('  posting to Instagram…');
-  const caption = `${story.caption}\n\n${HASHTAGS}`;
+  const caption = `${story.caption}\n\n👉 ఇలాంటి మరిన్ని కథల కోసం @modern.storiez ని ఫాలో అవ్వండి\n💬 మీ అభిప్రాయం కామెంట్ చేయండి | 📤 మీ ఫ్రెండ్స్‌కి షేర్ చేయండి\n\n${hashtagsFor(story)}`;
   const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption });
   log.push({ id: story.id, mediaId, permalink, postedAt: new Date().toISOString() });
   await writeFile(LOG, JSON.stringify(log, null, 2) + '\n');
