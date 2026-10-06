@@ -12,7 +12,8 @@
     "dry-run": "node --env-file-if-exists=.env src/index.js --dry-run",
     "whoami": "node --env-file-if-exists=.env src/whoami.js",
     "refresh-token": "node --env-file-if-exists=.env src/refresh-token.js",
-    "validate": "node --env-file-if-exists=.env src/validate.js"
+    "validate": "node --env-file-if-exists=.env src/validate.js",
+    "telugu": "node --env-file-if-exists=.env src/telugu.js"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.0.0",
