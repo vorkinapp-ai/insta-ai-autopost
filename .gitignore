@@ -2,3 +2,4 @@ node_modules/
 output/
 .env
 *.token
+.DS_Store
