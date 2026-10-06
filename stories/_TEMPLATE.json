@@ -1,0 +1,12 @@
+{
+  "title": "Short name for logs",
+  "postAs": "REELS",
+  "caption": "Caption + hashtags (ignored for STORIES)",
+  "style": "Look applied to every scene, describe recurring characters here so they stay consistent",
+  "model": "veo3.1_fast",
+  "secondsPerScene": 8,
+  "scenes": [
+    "Scene 1: what the camera sees. Put dialogue in quotes: the character says 'hello'",
+    { "prompt": "Scene 2 with its own settings", "seconds": 6, "model": "veo3.1" }
+  ]
+}

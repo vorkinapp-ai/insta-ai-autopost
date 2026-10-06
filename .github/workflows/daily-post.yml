@@ -1,0 +1,75 @@
+name: Daily Instagram post
+
+on:
+  schedule:
+    # 13:00 UTC = 6:30 PM IST. GitHub cron is UTC and can run a few minutes late.
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Generate video only, do not post'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # to commit posted.json
+
+concurrency:
+  group: daily-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate and post
+        env:
+          RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          RUNWAY_MODEL: ${{ vars.RUNWAY_MODEL }}
+          IG_GRAPH_HOST: ${{ vars.IG_GRAPH_HOST }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then npm run dry-run; else npm run post; fi
+
+      - name: Keep the video for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ github.run_number }}
+          path: output/**/final.mp4
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Commit posted log
+        if: success() && inputs.dry_run != true
+        run: |
+          git config user.name "insta-autopost-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add posted.json 2>/dev/null || exit 0
+          git diff --cached --quiet || (git commit -m "Log posted story" && git push)
+
+      # Instagram tokens expire after 60 days. This extends it every run and, if a GH_PAT
+      # secret (fine-grained token with "Secrets: write" on this repo) exists, saves it back.
+      - name: Refresh Instagram token
+        if: always()
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          REFRESHED_TOKEN_FILE: ${{ runner.temp }}/ig.token
+        run: |
+          npm run refresh-token
+          if [ -n "$GH_TOKEN" ] && [ -s "$REFRESHED_TOKEN_FILE" ]; then
+            gh secret set IG_ACCESS_TOKEN --repo "${{ github.repository }}" < "$REFRESHED_TOKEN_FILE"
+          fi
+          rm -f "$REFRESHED_TOKEN_FILE"

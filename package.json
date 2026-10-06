@@ -1,0 +1,24 @@
+{
+  "name": "insta-ai-autopost",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn story scripts into AI videos with Runway and post them to Instagram daily.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "post": "node --env-file-if-exists=.env src/index.js",
+    "dry-run": "node --env-file-if-exists=.env src/index.js --dry-run",
+    "whoami": "node --env-file-if-exists=.env src/whoami.js",
+    "refresh-token": "node --env-file-if-exists=.env src/refresh-token.js",
+    "validate": "node --env-file-if-exists=.env src/validate.js"
+  },
+  "dependencies": {
+    "@runwayml/sdk": "^3.0.0",
+    "ffmpeg-static": "^5.2.0"
+  },
+  "allowScripts": {
+    "ffmpeg-static@5.3.0": true
+  }
+}
