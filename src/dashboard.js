@@ -1,7 +1,9 @@
-// Local dashboard: `npm run dashboard` → builds output/dashboard.html from live Instagram, Runway
-// and GitHub data, then opens it in your browser. Read-only — it never posts or spends credits.
+// Local live dashboard: `npm run dashboard` → serves http://localhost:4321 with fresh Instagram, Runway
+// and GitHub data on every load (auto-refreshes every 2 minutes). Read-only — never posts or spends credits.
+// `npm run dashboard -- --file` writes a one-off snapshot to output/dashboard.html instead.
 import RunwayML from '@runwayml/sdk';
 import { execFile } from 'node:child_process';
+import { createServer } from 'node:http';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -86,7 +88,7 @@ function html({ account, posts, queue, stories, credits, runs, workflow }) {
   ];
   const catColor = { motivation: '#3b82f6', moral: '#10b981', family: '#ec4899', comedy: '#f59e0b' };
 
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="120">
 <title>Modern Stories Dashboard</title>
 <style>
 :root{--bg:#f5f7fb;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--navy:#0b1640;--gold:#f5c330;--ok:#16a34a;--warn:#d97706;--bad:#dc2626}
@@ -135,13 +137,30 @@ ${slots.map((d, i) => `<tr><td>${day(d)}</td><td>${esc(queue[i].id)}</td><td>${e
 <div class="card scroll"><table><thead><tr><th>When (IST)</th><th>Trigger</th><th>Result</th><th></th></tr></thead><tbody>
 ${runs.map((r) => `<tr><td>${day(r.createdAt)}</td><td>${r.event === 'schedule' ? 'Daily schedule' : 'Manual'}</td><td><span class="dot ${r.conclusion === 'success' ? 'ok' : r.status !== 'completed' ? 'warn' : 'bad'}"></span>${esc(r.conclusion || r.status)}</td><td><a href="${esc(r.url)}">Details ↗</a></td></tr>`).join('') || '<tr><td colspan="4">No runs yet</td></tr>'}
 </tbody></table></div>
-</main><footer>Refresh: run <code>npm run dashboard</code> in the insta-ai-autopost folder. Stats from Instagram can lag a few hours.</footer>
+</main><footer>Live: refreshes every 2 minutes (or press reload). Instagram counts views with a delay of up to a few hours.</footer>
 </body></html>`;
 }
 
-const data = await collect();
-const out = path.join(root, 'output/dashboard.html');
-await mkdir(path.dirname(out), { recursive: true });
-await writeFile(out, html(data));
-console.log(`Dashboard: ${out}`);
-if (!process.argv.includes('--no-open')) await run('open', [out]).catch(() => {});
+const PORT = 4321;
+if (process.argv.includes('--file')) {
+  const out = path.join(root, 'output/dashboard.html');
+  await mkdir(path.dirname(out), { recursive: true });
+  await writeFile(out, html(await collect()));
+  console.log(`Dashboard snapshot: ${out}`);
+  await run('open', [out]).catch(() => {});
+} else {
+  // Cache for 60s so rapid reloads don't hammer the APIs.
+  let cache = { at: 0, page: '' };
+  createServer(async (req, res) => {
+    if (req.url !== '/') return res.writeHead(404).end();
+    try {
+      if (Date.now() - cache.at > 60_000) cache = { at: Date.now(), page: html(await collect()) };
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).end(cache.page);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }).end(`Dashboard error: ${e.message}`);
+    }
+  }).listen(PORT, '127.0.0.1', () => {
+    console.log(`Dashboard running at http://localhost:${PORT}  (Ctrl+C to stop)`);
+    if (!process.argv.includes('--no-open')) run('open', [`http://localhost:${PORT}`]).catch(() => {});
+  });
+}
