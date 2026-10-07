@@ -34,6 +34,16 @@ const KEYWORDS = {
   family: 'Telugu emotional story | amma prema | family story in Telugu',
   comedy: 'Telugu comedy story | Tenali Ramakrishna kathalu | funny Telugu story',
 };
+// Specific, varied calls to action (rotated per story so captions never repeat word-for-word).
+const CTAS = [
+  '📤 ఈ కథ అవసరమైన ఒక్కరికి పంపండి',
+  '💬 మీకు ఇలా జరిగిందా? "అవును" అని కామెంట్ చేయండి',
+  '💾 కష్టంగా ఉన్నప్పుడు మళ్ళీ చూడటానికి సేవ్ చేయండి',
+  '👥 ఇది వినాల్సిన ఫ్రెండ్‌ని ట్యాగ్ చేయండి',
+  '💬 ఈ కథలో మీకు నచ్చిన లైన్ కామెంట్ చేయండి',
+  '📤 మీ ఫ్యామిలీ గ్రూప్‌లో షేర్ చేయండి, పెద్దలకు కూడా నచ్చుతుంది',
+];
+const ctaFor = (s) => CTAS[(parseInt(s.id, 10) || 0) % CTAS.length];
 const hashtagsFor = (s) => `${CATEGORY_TAGS[s.category] || CATEGORY_TAGS.motivation} ${CORE_TAGS}`;
 // Two-colour backgrounds, picked by story number so consecutive posts look different.
 // Navy/blue family to match the Modern Stories logo.
@@ -115,6 +125,12 @@ const BRAND_EN = 'MODERN STORIES';
 // storyEnd = when narration stops and the "thanks for watching" end card starts.
 function assFile(story, cues, total, storyEnd) {
   const esc = (t) => t.replace(/[{}]/g, '').replace(/\n/g, '\\N');
+  // Retention reset every ~6 s: a quick light flash + title pulse re-grabs attention (pattern interrupt).
+  const resets = [];
+  for (let t = 6; t < storyEnd - 2; t += 6) {
+    resets.push(`Dialogue: 4,${ts(t)},${ts(t + 0.25)},Shape,,0,0,0,,{\\an7\\pos(0,0)\\p1\\1c&HFFFFFF&\\1a&HE6&\\fad(0,200)}m 0 0 l 1080 0 l 1080 1920 l 0 1920{\\p0}`);
+    resets.push(`Dialogue: 2,${ts(t)},${ts(t + 0.7)},Title,,0,0,0,,{\\t(0,250,\\fscx115\\fscy115)\\t(250,700,\\fscx100\\fscy100)}${esc(story.title)}`);
+  }
   const lines = cues.map((c) => `Dialogue: 1,${ts(c.start)},${ts(Math.min(c.end, storyEnd))},Main,,0,0,0,,{\\fad(250,200)}${esc(c.text)}`);
   const ms = Math.round(total * 1000);
   const box = (x1, y1, x2, y2) => `m ${x1} ${y1} l ${x2} ${y1} l ${x2} ${y2} l ${x1} ${y2}`;
@@ -159,6 +175,7 @@ Style: EndSmall,Noto Sans Telugu,46,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 ${branding.join('\n')}
+${resets.join('\n')}
 ${lines.join('\n')}
 `;
 }
@@ -240,7 +257,7 @@ async function main() {
 
   console.log('  posting to Instagram…');
   // "Send to someone" drives DM shares — Instagram's strongest signal for reaching non-followers.
-  const caption = `${story.caption}\n\n📤 ఈ కథ అవసరమైన ఒక్కరికి పంపండి\n👉 రోజూ ఒక కొత్త కథ కోసం @modern.storiez ని ఫాలో అవ్వండి\n\n${KEYWORDS[story.category] || KEYWORDS.motivation}\n\n${hashtagsFor(story)}`;
+  const caption = `${story.caption}\n\n${ctaFor(story)}\n👉 రోజూ ఒక కొత్త కథ కోసం @modern.storiez ని ఫాలో అవ్వండి\n\n${KEYWORDS[story.category] || KEYWORDS.motivation}\n\n${hashtagsFor(story)}`;
   const videoUrl = await hostVideo(video, `telugu-${story.id}.mp4`);
   console.log(`  hosted at ${videoUrl}`);
   const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption, videoUrl });
