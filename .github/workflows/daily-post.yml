@@ -46,7 +46,7 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then npm run telugu -- --dry-run; else npm run telugu; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then npm run telugu -- --dry-run; else npm run telugu -- --if-due; fi
 
       - name: Keep the video for review
         if: always()

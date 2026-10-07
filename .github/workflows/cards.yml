@@ -46,7 +46,7 @@ jobs:
         run: |
           TYPE="${{ inputs.type }}"
           if [ -z "$TYPE" ]; then [ "${{ github.event.schedule }}" = "30 7 * * *" ] && TYPE=health || TYPE=quote; fi
-          if [ "${{ inputs.dry_run }}" = "true" ]; then npm run cards -- --type "$TYPE" --dry-run; else npm run cards -- --type "$TYPE"; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then npm run cards -- --type "$TYPE" --dry-run; else npm run cards -- --type "$TYPE" --if-due; fi
 
       - name: Keep the video for review
         if: always()

@@ -179,6 +179,11 @@ async function main() {
   const cards = JSON.parse(await readFile(path.join(root, TYPES[type].file), 'utf8'));
   const log = existsSync(LOG) ? JSON.parse(await readFile(LOG, 'utf8')) : [];
   const done = new Set(log.map((e) => e.id));
+  // --if-due: skip if this card type was already posted in the last 3 h (protects against two schedulers firing).
+  const last = log.filter((e) => e.type === type).at(-1)?.postedAt;
+  if (args.includes('--if-due') && last && Date.now() - new Date(last).getTime() < 3 * 3600_000) {
+    return console.log(`Skipped: a ${type} was already posted at ${last}.`);
+  }
   // Cycle back to the start once every card has been used.
   const card = opt('--id') ? cards.find((c) => c.id === opt('--id')) : cards.find((c) => !done.has(c.id)) || cards[log.filter((e) => e.type === type).length % cards.length];
   if (!card) throw new Error('Card not found');

@@ -244,6 +244,11 @@ async function main() {
     return;
   }
 
+  // --if-due: skip if a story was already posted in the last 3 h (protects against two schedulers firing).
+  const last = log.at(-1)?.postedAt;
+  if (flag('--if-due') && last && Date.now() - new Date(last).getTime() < 3 * 3600_000) {
+    return console.log(`Skipped: a story was already posted at ${last}.`);
+  }
   const story = opt('--id') ? stories.find((s) => s.id === opt('--id')) : stories.find((s) => !done.has(s.id));
   if (!story) return console.log('No Telugu stories left in the queue.');
   const n = stories.indexOf(story);
