@@ -1,0 +1,61 @@
+name: Daily cards
+
+on:
+  schedule:
+    # 02:30 UTC = 8:00 AM IST → motivational quote. (Health tips at 1 PM will be added once images are set up.)
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'quote or health'
+        default: quote
+      dry_run:
+        description: 'Generate video only, do not post'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: instagram-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Make and post card
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TYPE="${{ inputs.type || 'quote' }}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then npm run cards -- --type "$TYPE" --dry-run; else npm run cards -- --type "$TYPE"; fi
+
+      - name: Keep the video for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-${{ github.run_number }}
+          path: output/**/final.mp4
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Commit posted log
+        if: success() && inputs.dry_run != true
+        run: |
+          git config user.name "insta-autopost-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add cards-posted.json 2>/dev/null || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "Log posted card" && git pull --rebase -q && git push
