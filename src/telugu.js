@@ -27,10 +27,12 @@ const CATEGORY_TAGS = {
 };
 const hashtagsFor = (s) => `${CATEGORY_TAGS[s.category] || CATEGORY_TAGS.motivation} ${CORE_TAGS}`;
 // Two-colour backgrounds, picked by story number so consecutive posts look different.
+// Navy/blue family to match the Modern Stories logo.
 const PALETTES = [
-  ['0x0f2027', '0x2c5364'], ['0x1a1a2e', '0x16213e'], ['0x141e30', '0x243b55'], ['0x2c3e50', '0x000000'],
-  ['0x0f0c29', '0x302b63'], ['0x42275a', '0x2b1a3a'], ['0x1d4350', '0x0b1f26'], ['0x3a1c71', '0x1b0f36'],
+  ['0x0b1640', '0x1d3a8a'], ['0x0a1235', '0x2a2f7a'], ['0x0d1b4c', '0x16306e'], ['0x081030', '0x26408f'],
+  ['0x0c1442', '0x3a2a7a'], ['0x0b1a48', '0x1f4f9a'],
 ];
+const LOGO = path.join(root, 'assets/brand/logo-round.png');
 
 const args = process.argv.slice(2);
 const flag = (f) => args.includes(f);
@@ -109,19 +111,20 @@ function assFile(story, cues, total, storyEnd) {
   const box = (x1, y1, x2, y2) => `m ${x1} ${y1} l ${x2} ${y1} l ${x2} ${y2} l ${x1} ${y2}`;
   const branding = [
     // Top banner: dark translucent bar with gold accent line + brand name (same on every video).
-    `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,0)\\p1\\1c&H000000&\\1a&H50&}${box(0, 0, 1080, 230)}{\\p0}`,
-    `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,230)\\p1\\1c&H00C8FF&\\1a&H00&}${box(0, 0, 1080, 6)}{\\p0}`,
-    `Dialogue: 1,${ts(0)},${ts(total)},Brand,,0,0,0,,{\\pos(540,95)}${BRAND_TE}`,
-    `Dialogue: 1,${ts(0)},${ts(total)},BrandSub,,0,0,0,,{\\pos(540,170)}${BRAND_EN}  •  TELUGU KATHALU`,
+    // Logo image is overlaid at the left of this bar by ffmpeg (see render()).
+    `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,0)\\p1\\1c&H2E1408&\\1a&H20&}${box(0, 0, 1080, 230)}{\\p0}`,
+    `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,230)\\p1\\1c&H30C3F5&\\1a&H00&}${box(0, 0, 1080, 6)}{\\p0}`,
+    `Dialogue: 1,${ts(0)},${ts(total)},Brand,,0,0,0,,{\\pos(620,95)}${BRAND_TE}`,
+    `Dialogue: 1,${ts(0)},${ts(total)},BrandSub,,0,0,0,,{\\pos(620,170)}${BRAND_EN}  •  TELUGU KATHALU`,
     `Dialogue: 1,${ts(0)},${ts(storyEnd)},Title,,0,0,0,,${esc(story.title)}`,
     // Progress bar along the bottom fills up over the whole video.
     `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&HFFFFFF&\\1a&HB0&}${box(0, 0, 1080, 16)}{\\p0}`,
-    `Dialogue: 1,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&H00C8FF&\\fscx0\\t(0,${ms},\\fscx100)}${box(0, 0, 1080, 16)}{\\p0}`,
+    `Dialogue: 1,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&H30C3F5&\\fscx0\\t(0,${ms},\\fscx100)}${box(0, 0, 1080, 16)}{\\p0}`,
     `Dialogue: 1,${ts(0)},${ts(total)},Handle,,0,0,0,,@modern.storiez`,
-    // End card.
-    `Dialogue: 2,${ts(storyEnd)},${ts(total)},EndBig,,0,0,0,,{\\fad(300,0)}చూసినందుకు\\Nధన్యవాదాలు`,
-    `Dialogue: 2,${ts(storyEnd + 0.4)},${ts(total)},EndCta,,0,0,0,,{\\fad(300,0)}LIKE  •  SHARE  •  FOLLOW`,
-    `Dialogue: 2,${ts(storyEnd + 0.8)},${ts(total)},EndSmall,,0,0,0,,{\\fad(300,0)}ఇలాంటి మరిన్ని కథల కోసం ఫాలో అవ్వండి`,
+    // End card (big logo is overlaid above this text by ffmpeg).
+    `Dialogue: 2,${ts(storyEnd)},${ts(total)},EndBig,,0,0,0,,{\\fad(300,0)\\pos(540,1080)}చూసినందుకు ధన్యవాదాలు`,
+    `Dialogue: 2,${ts(storyEnd + 0.4)},${ts(total)},EndCta,,0,0,0,,{\\fad(300,0)\\pos(540,1230)}LIKE  •  SHARE  •  FOLLOW`,
+    `Dialogue: 2,${ts(storyEnd + 0.8)},${ts(total)},EndSmall,,0,0,0,,{\\fad(300,0)\\pos(540,1340)}ఇలాంటి మరిన్ని కథల కోసం ఫాలో అవ్వండి`,
   ];
   return `[Script Info]
 ScriptType: v4.00+
@@ -132,13 +135,13 @@ WrapStyle: 0
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Main,Noto Sans Telugu,76,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,5,100,100,0,1
-Style: Title,Noto Sans Telugu,60,&H0000D7FF,&H0000D7FF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,8,80,80,300,1
+Style: Title,Noto Sans Telugu,60,&H0030C3F5,&H0030C3F5,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,8,80,80,300,1
 Style: Brand,Noto Sans Telugu,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
-Style: BrandSub,Noto Sans Telugu,30,&H0000C8FF,&H0000C8FF,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,0,0,5,0,0,0,1
+Style: BrandSub,Noto Sans Telugu,30,&H0030C3F5,&H0030C3F5,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,0,0,5,0,0,0,1
 Style: Shape,Noto Sans Telugu,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 Style: Handle,Noto Sans Telugu,40,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,2,80,80,70,1
-Style: EndBig,Noto Sans Telugu,96,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,3,5,80,80,160,1
-Style: EndCta,Noto Sans Telugu,58,&H0000C8FF,&H0000C8FF,&H00000000,&H80000000,1,0,0,0,100,100,4,0,1,3,2,5,80,80,-140,1
+Style: EndBig,Noto Sans Telugu,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,3,5,80,80,160,1
+Style: EndCta,Noto Sans Telugu,58,&H0030C3F5,&H0030C3F5,&H00000000,&H80000000,1,0,0,0,100,100,4,0,1,3,2,5,80,80,-140,1
 Style: EndSmall,Noto Sans Telugu,46,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,5,80,80,-290,1
 
 [Events]
@@ -164,8 +167,10 @@ async function render(story, n, workDir) {
   console.log('  rendering video…');
   const { code, err } = await ff([
     '-y', '-f', 'lavfi', '-i', `gradients=s=1080x1920:c0=${c0}:c1=${c1}:speed=0.015:d=${total}:r=30`,
-    '-i', audio, '-i', outro,
-    '-filter_complex', `[0:v]ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')},format=yuv420p[v];` +
+    '-i', audio, '-i', outro, '-loop', '1', '-i', LOGO,
+    '-filter_complex', `[0:v]ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];` +
+      `[3:v]format=rgba,split[l1][l2];[l1]scale=180:180[ls];[l2]scale=520:520,fade=t=in:st=${storyEnd}:d=0.4:alpha=1[lb];` +
+      `[bg][ls]overlay=70:25:shortest=1[t1];[t1][lb]overlay=(W-w)/2:430:enable='gte(t,${storyEnd})',format=yuv420p[v];` +
       `[1:a]aresample=48000,apad=whole_dur=${storyEnd}[s];[2:a]aresample=48000[o];[s][o]concat=n=2:v=0:a=1,apad,atrim=0:${total}[a]`,
     '-map', '[v]', '-map', '[a]', '-t', String(total),
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-movflags', '+faststart', out,
