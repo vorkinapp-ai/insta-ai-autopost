@@ -67,10 +67,26 @@ async function waitUntilReady(containerId, { timeoutMs = 15 * 60 * 1000, interva
   throw new Error('Timed out waiting for Instagram to process the video');
 }
 
-/** Upload and publish a video. Returns { mediaId, permalink }. */
-export async function publishVideo(filePath, { mediaType = 'REELS', caption = '' } = {}) {
-  const containerId = await createContainerFromFile(filePath, { mediaType, caption });
-  console.log(`  container ${containerId} uploaded`);
+/** Create a container from a public video URL (what the Instagram Login API requires). */
+async function createContainerFromUrl(videoUrl, { mediaType, caption }) {
+  const body = { media_type: mediaType, video_url: videoUrl };
+  if (mediaType === 'REELS') {
+    body.caption = caption;
+    body.share_to_feed = true;
+  }
+  return (await call('POST', graph(`${ig.userId}/media`), body)).id;
+}
+
+/**
+ * Publish a video. Pass `videoUrl` (public link) for graph.instagram.com; without it, falls back to
+ * resumable file upload, which only graph.facebook.com (Facebook Login) accepts.
+ * Returns { mediaId, permalink }.
+ */
+export async function publishVideo(filePath, { mediaType = 'REELS', caption = '', videoUrl } = {}) {
+  const containerId = videoUrl
+    ? await createContainerFromUrl(videoUrl, { mediaType, caption })
+    : await createContainerFromFile(filePath, { mediaType, caption });
+  console.log(`  container ${containerId} created`);
   await waitUntilReady(containerId);
   const { id: mediaId } = await call('POST', graph(`${ig.userId}/media_publish`), { creation_id: containerId });
   let permalink = null;

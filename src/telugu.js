@@ -11,6 +11,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { publishVideo } from './instagram.js';
+import { hostVideo } from './host.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const STORIES = path.join(root, 'telugu-stories/stories.json');
@@ -207,7 +208,9 @@ async function main() {
 
   console.log('  posting to Instagram…');
   const caption = `${story.caption}\n\n👉 ఇలాంటి మరిన్ని కథల కోసం @modern.storiez ని ఫాలో అవ్వండి\n💬 మీ అభిప్రాయం కామెంట్ చేయండి | 📤 మీ ఫ్రెండ్స్‌కి షేర్ చేయండి\n\n${hashtagsFor(story)}`;
-  const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption });
+  const videoUrl = await hostVideo(video, `telugu-${story.id}.mp4`);
+  console.log(`  hosted at ${videoUrl}`);
+  const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption, videoUrl });
   log.push({ id: story.id, mediaId, permalink, postedAt: new Date().toISOString() });
   await writeFile(LOG, JSON.stringify(log, null, 2) + '\n');
   console.log(`Posted! ${permalink || mediaId}`);
