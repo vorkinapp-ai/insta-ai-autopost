@@ -2,8 +2,8 @@ name: Daily cards
 
 on:
   schedule:
-    # 02:30 UTC = 8:00 AM IST → motivational quote. (Health tips at 1 PM will be added once images are set up.)
-    - cron: '30 2 * * *'
+    - cron: '30 2 * * *' # 8:00 AM IST → Telugu motivational quote (free)
+    - cron: '30 7 * * *' # 1:00 PM IST → English health tip with photo (5 credits, once per tip)
   workflow_dispatch:
     inputs:
       type:
@@ -35,11 +35,13 @@ jobs:
 
       - name: Make and post card
         env:
+          RUNWAYML_API_SECRET: ${{ secrets.RUNWAYML_API_SECRET }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          TYPE="${{ inputs.type || 'quote' }}"
+          TYPE="${{ inputs.type }}"
+          if [ -z "$TYPE" ]; then [ "${{ github.event.schedule }}" = "30 7 * * *" ] && TYPE=health || TYPE=quote; fi
           if [ "${{ inputs.dry_run }}" = "true" ]; then npm run cards -- --type "$TYPE" --dry-run; else npm run cards -- --type "$TYPE"; fi
 
       - name: Keep the video for review
@@ -56,6 +58,6 @@ jobs:
         run: |
           git config user.name "insta-autopost-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add cards-posted.json 2>/dev/null || exit 0
+          git add cards-posted.json assets/photos 2>/dev/null || exit 0
           git diff --cached --quiet && exit 0
-          git commit -m "Log posted card" && git pull --rebase -q && git push
+          git commit -m "Log posted card (+ new photo)" && git pull --rebase -q && git push

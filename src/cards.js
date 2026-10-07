@@ -3,6 +3,7 @@
 //   npm run cards -- --type quote            -> make + post the next quote
 //   npm run cards -- --type health --dry-run -> make the next health tip only
 //   npm run cards -- --type quote --id q05   -> a specific card
+import RunwayML from '@runwayml/sdk';
 import ffmpegPath from 'ffmpeg-static';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -31,6 +32,7 @@ const TYPES = {
   health: {
     file: 'telugu-stories/health.json',
     seconds: 13,
+    photo: true, // background photo from Runway gen4_image 720p (5 credits; muse_image isn't offered in India)
     // C-major pad: fresh, light.
     chord: [261.63, 329.63, 392, 523.25],
     palette: [['0x06303a', '0x0b5d63'], ['0x0b2a3f', '0x13607a'], ['0x072f2a', '0x0f6b57']],
@@ -80,6 +82,8 @@ function assFor(type, card, total) {
     ];
   } else {
     body = [
+      // Dark translucent panel so the tips stay readable over the photo.
+      ev(0, 0, total, 'Shape', `{\\an7\\pos(60,330)\\p1\\1c&H2E1408&\\1a&H58&}${box(0, 0, 960, 1260)}{\\p0}`),
       ev(1, 0.1, total, 'Pill', '{\\fad(300,0)\\pos(540,420)}DAILY HEALTH TIP'),
       ev(1, 0.3, total, 'HTitle', `{\\fad(400,0)\\pos(540,560)}${esc(card.title)}`),
       ...card.tips.map((t, i) => ev(1, 1.2 + i * 2.2, total, 'Tip', `{\\fad(400,0)\\an4\\pos(110,${800 + i * 220})}•  ${esc(t)}`)),
@@ -112,21 +116,47 @@ ${[...common, ...body].join('\n')}
 `;
 }
 
+/** One vertical photo per card, generated once and kept in workDir (5 credits with gen4_image at 720p). */
+async function photoFor(card) {
+  // Kept in the repo (committed by the workflow) so each photo is only ever paid for once.
+  const file = path.join(root, 'assets/photos', `${card.id}.png`);
+  await mkdir(path.dirname(file), { recursive: true });
+  if (existsSync(file)) return file;
+  const task = await new RunwayML().textToImage
+    .create({
+      model: 'gen4_image',
+      ratio: '720:1280',
+      promptText: `Professional lifestyle photograph of ${card.image}. Bright natural light, fresh and clean, Indian setting where relevant, shallow depth of field, high detail, no text, no words, no logos.`,
+    })
+    .waitForTaskOutput({ timeout: 5 * 60 * 1000 });
+  const res = await fetch(task.output[0]);
+  if (!res.ok) throw new Error(`Photo download failed: HTTP ${res.status}`);
+  await writeFile(file, Buffer.from(await res.arrayBuffer()));
+  return file;
+}
+
 async function render(type, card, index, workDir) {
   const t = TYPES[type];
   const total = t.seconds;
   const assPath = path.join(workDir, 'card.ass');
   await writeFile(assPath, assFor(type, card, total));
   const [c0, c1] = t.palette[index % t.palette.length];
+  // Background: slow zoom on the photo, or a moving gradient.
+  const bgInput = t.photo
+    ? ['-loop', '1', '-framerate', '30', '-i', await photoFor(card)]
+    : ['-f', 'lavfi', '-i', `gradients=s=1080x1920:c0=${c0}:c1=${c1}:speed=0.02:d=${total}:r=30`];
+  const bgFilter = t.photo
+    ? `[0:v]scale=1296:2304:force_original_aspect_ratio=increase,crop=1296:2304,zoompan=z='min(zoom+0.0005,1.15)':d=${Math.ceil(total * 30)}:s=1080x1920:fps=30,eq=brightness=-0.06,`
+    : '[0:v]';
   // Soft chord pad with a slow swell; quiet so it sits under any music viewers may have on.
   const pad = t.chord.map((f, i) => `${(0.07 - i * 0.012).toFixed(3)}*sin(2*PI*${f}*t)`).join('+');
   const out = path.join(workDir, 'final.mp4');
   const { code, err } = await ff([
-    '-y', '-f', 'lavfi', '-i', `gradients=s=1080x1920:c0=${c0}:c1=${c1}:speed=0.02:d=${total}:r=30`,
+    '-y', ...bgInput,
     '-f', 'lavfi', '-i', `aevalsrc='(${pad})*(0.75+0.25*sin(2*PI*0.2*t))':s=48000:d=${total}`,
     '-loop', '1', '-i', LOGO,
     '-filter_complex',
-    `[0:v]ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];[2:v]format=rgba,scale=180:180[l];` +
+    `${bgFilter}ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];[2:v]format=rgba,scale=180:180[l];` +
       `[bg][l]overlay=70:25:shortest=1,format=yuv420p[v];` +
       `[1:a]lowpass=f=1500,aecho=0.8:0.7:60:0.3,afade=t=in:d=1.2,afade=t=out:st=${total - 1.8}:d=1.8,pan=stereo|c0=c0|c1=c0[a]`,
     '-map', '[v]', '-map', '[a]', '-t', String(total),
