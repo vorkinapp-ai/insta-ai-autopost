@@ -13,7 +13,8 @@
     "whoami": "node --env-file-if-exists=.env src/whoami.js",
     "refresh-token": "node --env-file-if-exists=.env src/refresh-token.js",
     "validate": "node --env-file-if-exists=.env src/validate.js",
-    "telugu": "node --env-file-if-exists=.env src/telugu.js"
+    "telugu": "node --env-file-if-exists=.env src/telugu.js",
+    "dashboard": "node --env-file-if-exists=.env src/dashboard.js"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.0.0",
