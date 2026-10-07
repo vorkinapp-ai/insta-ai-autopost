@@ -16,7 +16,9 @@
     "telugu": "node --env-file-if-exists=.env src/telugu.js",
     "dashboard": "node --env-file-if-exists=.env src/dashboard.js",
     "cards": "node --env-file-if-exists=.env src/cards.js",
-    "engage": "node --env-file-if-exists=.env src/engage.js"
+    "engage": "node --env-file-if-exists=.env src/engage.js",
+    "scripts-sheet": "node src/scripts-sheet.js",
+    "voice-sync": "node src/scripts-sheet.js && git add assets/voice/own telugu-stories/SCRIPTS.md && (git diff --cached --quiet && echo 'No new recordings.' || (git commit -q -m 'Add voice recordings' && git pull --rebase -q && git push -q && echo 'Recordings uploaded \u2014 they will be used automatically.'))"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.0.0",

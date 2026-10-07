@@ -166,16 +166,25 @@ const SPEED = 1.12; // slightly faster narration keeps viewers watching (pitch u
 const END_CARD = 2.8; // seconds; short so it doesn't drag down average watch %
 
 async function render(story, n, workDir) {
-  // Raw voice is kept in the repo (committed by the workflow) so each story's narration is paid for once.
-  const audio = path.join(root, 'assets/voice', `${story.id}.mp3`);
-  await mkdir(path.dirname(audio), { recursive: true });
-  const legacy = path.join(workDir, 'voice.mp3');
-  if (!existsSync(audio) && existsSync(legacy)) await writeFile(audio, await readFile(legacy));
-  console.log(`  voice (${VOICE}, ${existsSync(audio) ? 'cached, 0' : `~${estCredits(story)}`} credits)…`);
-  await narrate(story, audio);
   const fast = path.join(workDir, 'voice-fast.wav');
-  const sped = await ff(['-y', '-i', audio, '-af', `atempo=${SPEED},aresample=48000`, fast]);
-  if (sped.code !== 0) throw new Error(`ffmpeg atempo failed:\n${sped.err.slice(-800)}`);
+  const own = ['m4a', 'mp3', 'wav', 'aac', 'ogg'].map((x) => path.join(root, 'assets/voice/own', `${story.id}.${x}`)).find(existsSync);
+  if (own) {
+    // Your own recording: trim silence at both ends, reduce background noise, even out volume. Natural speed.
+    console.log(`  voice: your recording (${path.basename(own)}, 0 credits)`);
+    const trim = 'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.1';
+    const cleaned = await ff(['-y', '-i', own, '-af', `highpass=f=80,afftdn=nf=-25,${trim},areverse,${trim},areverse,loudnorm=I=-16:TP=-1.5,aresample=48000`, '-ac', '1', fast]);
+    if (cleaned.code !== 0) throw new Error(`Could not process your recording:\n${cleaned.err.slice(-800)}`);
+  } else {
+    // AI voice, kept in the repo (committed by the workflow) so each story's narration is paid for once.
+    const audio = path.join(root, 'assets/voice', `${story.id}.mp3`);
+    await mkdir(path.dirname(audio), { recursive: true });
+    const legacy = path.join(workDir, 'voice.mp3');
+    if (!existsSync(audio) && existsSync(legacy)) await writeFile(audio, await readFile(legacy));
+    console.log(`  voice: AI ${VOICE} (${existsSync(audio) ? 'cached, 0' : `~${estCredits(story)}`} credits)`);
+    await narrate(story, audio);
+    const sped = await ff(['-y', '-i', audio, '-af', `atempo=${SPEED},aresample=48000`, fast]);
+    if (sped.code !== 0) throw new Error(`ffmpeg atempo failed:\n${sped.err.slice(-800)}`);
+  }
   const voiceLen = await duration(fast);
   const storyEnd = voiceLen + 0.4;
   const total = storyEnd + END_CARD;
