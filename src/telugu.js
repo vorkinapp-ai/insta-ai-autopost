@@ -118,8 +118,8 @@ function assFile(story, cues, total, storyEnd) {
     `Dialogue: 1,${ts(0)},${ts(total)},Brand,,0,0,0,,{\\pos(620,95)}${BRAND_TE}`,
     `Dialogue: 1,${ts(0)},${ts(total)},BrandSub,,0,0,0,,{\\pos(620,170)}${BRAND_EN}  •  TELUGU KATHALU`,
     `Dialogue: 1,${ts(0)},${ts(storyEnd)},Title,,0,0,0,,${esc(story.title)}`,
-    // Hook: stop the scroll in the first seconds.
-    `Dialogue: 3,${ts(0)},${ts(3)},Hook,,0,0,0,,{\\fad(0,300)\\pos(540,560)\\t(0,400,\\fscx112\\fscy112)\\t(400,800,\\fscx100\\fscy100)}చివరి వరకు చూడండి`,
+    // Open-loop hook: a question only the ending answers, so viewers stay (and replay the start).
+    `Dialogue: 3,${ts(0)},${ts(3.2)},Hook,,0,0,0,,{\\fad(0,300)\\pos(540,560)\\t(0,400,\\fscx110\\fscy110)\\t(400,800,\\fscx100\\fscy100)}${esc(story.hook || 'చివరి వరకు చూడండి')}`,
     // Progress bar along the bottom fills up over the whole video.
     `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&HFFFFFF&\\1a&HB0&}${box(0, 0, 1080, 16)}{\\p0}`,
     `Dialogue: 1,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&H30C3F5&\\fscx0\\t(0,${ms},\\fscx100)}${box(0, 0, 1080, 16)}{\\p0}`,
@@ -143,7 +143,7 @@ Style: Brand,Noto Sans Telugu,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0
 Style: BrandSub,Noto Sans Telugu,30,&H0030C3F5,&H0030C3F5,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,0,0,5,0,0,0,1
 Style: Shape,Noto Sans Telugu,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 Style: Handle,Noto Sans Telugu,40,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,2,80,80,70,1
-Style: Hook,Noto Sans Telugu,88,&H0030C3F5,&H0030C3F5,&H00000000,&H90000000,1,0,0,0,100,100,0,0,3,0,0,5,0,0,0,1
+Style: Hook,Noto Sans Telugu,70,&H0030C3F5,&H0030C3F5,&H00000000,&H90000000,1,0,0,0,100,100,0,0,3,0,0,5,0,0,0,1
 Style: EndBig,Noto Sans Telugu,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,3,5,80,80,160,1
 Style: EndCta,Noto Sans Telugu,58,&H0030C3F5,&H0030C3F5,&H00000000,&H80000000,1,0,0,0,100,100,4,0,1,3,2,5,80,80,-140,1
 Style: EndSmall,Noto Sans Telugu,46,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,5,80,80,-290,1

@@ -21,7 +21,7 @@ const LOGO = path.join(root, 'assets/brand/logo-round.png');
 const TYPES = {
   quote: {
     file: 'telugu-stories/quotes.json',
-    seconds: 9,
+    seconds: 7.5, // short + no end card so it loops seamlessly (rewatches boost reach)
     // A-minor pad: calm, reflective.
     chord: [220, 261.63, 329.63, 440],
     palette: [['0x0b1640', '0x1d3a8a'], ['0x0c1442', '0x3a2a7a'], ['0x081030', '0x26408f']],
@@ -31,7 +31,7 @@ const TYPES = {
   },
   health: {
     file: 'telugu-stories/health.json',
-    seconds: 13,
+    seconds: 11,
     photo: true, // background photo from Runway gen4_image 720p (5 credits; muse_image isn't offered in India)
     // C-major pad: fresh, light.
     chord: [261.63, 329.63, 392, 523.25],
@@ -71,14 +71,16 @@ function assFor(type, card, total) {
     ev(0, 0, total, 'Shape', `{\\an7\\pos(0,1904)\\p1\\1c&HFFFFFF&\\1a&HB0&}${box(0, 0, 1080, 16)}{\\p0}`),
     ev(1, 0, total, 'Shape', `{\\an7\\pos(0,1904)\\p1\\1c&H30C3F5&\\fscx0\\t(0,${ms},\\fscx100)}${box(0, 0, 1080, 16)}{\\p0}`),
     ev(1, 0, total, 'Handle', '@modern.storiez'),
-    ev(2, total - 2.4, total, 'Cta', '{\\fad(300,0)\\pos(540,1640)}FOLLOW  •  LIKE  •  SHARE'),
   ];
   let body;
   if (type === 'quote') {
+    const [first, ...rest] = card.text.split('\n');
+    const reveal = total * 0.42; // punchline lands late → viewers loop back to take it in
     body = [
-      ev(1, 0.2, total, 'QuoteMark', '{\\fad(400,0)\\pos(540,620)}"'),
-      ev(1, 0.6, total, 'Quote', `{\\fad(600,0)\\pos(540,960)}${esc(card.text)}`),
-      ev(1, 0.6, total, 'Shape', `{\\an7\\pos(440,1180)\\p1\\1c&H30C3F5&\\fad(600,0)}${box(0, 0, 200, 6)}{\\p0}`),
+      ev(1, 0, total, 'QuoteMark', '{\\pos(540,620)}"'),
+      ev(1, 0, total, 'Quote', `{\\pos(540,900)}${esc(first)}`),
+      ev(1, reveal, total, 'Punch', `{\\fad(250,0)\\pos(540,1060)\\t(0,300,\\fscx108\\fscy108)\\t(300,600,\\fscx100\\fscy100)}${esc(rest.join('\n'))}`),
+      ev(1, reveal, total, 'Shape', `{\\an7\\pos(440,1200)\\p1\\1c&H30C3F5&\\fad(250,0)}${box(0, 0, 200, 6)}{\\p0}`),
     ];
   } else {
     body = [
@@ -86,7 +88,7 @@ function assFor(type, card, total) {
       ev(0, 0, total, 'Shape', `{\\an7\\pos(60,330)\\p1\\1c&H2E1408&\\1a&H58&}${box(0, 0, 960, 1260)}{\\p0}`),
       ev(1, 0.1, total, 'Pill', '{\\fad(300,0)\\pos(540,420)}DAILY HEALTH TIP'),
       ev(1, 0.3, total, 'HTitle', `{\\fad(400,0)\\pos(540,560)}${esc(card.title)}`),
-      ...card.tips.map((t, i) => ev(1, 1.2 + i * 2.2, total, 'Tip', `{\\fad(400,0)\\an4\\pos(110,${800 + i * 220})}•  ${esc(t)}`)),
+      ...card.tips.map((t, i) => ev(1, 0.8 + i * 1.8, total, 'Tip', `{\\fad(400,0)\\an4\\pos(110,${800 + i * 220})}•  ${esc(t)}`)),
       ev(1, 0.3, total, 'Note', '{\\pos(540,1520)}General wellness info • Not medical advice'),
     ];
   }
@@ -104,6 +106,7 @@ Style: BrandSub,Noto Sans Telugu,30,&H0030C3F5,&H0030C3F5,&H00000000,&H00000000,
 Style: Handle,Noto Sans Telugu,40,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,2,80,80,70,1
 Style: Cta,Noto Sans Telugu,52,&H0030C3F5,&H0030C3F5,&H00000000,&H80000000,1,0,0,0,100,100,4,0,1,3,2,5,0,0,0,1
 Style: QuoteMark,Noto Sans Telugu,260,&H0030C3F5,&H0030C3F5,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: Punch,Noto Sans Telugu,84,&H0030C3F5,&H0030C3F5,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,5,90,90,0,1
 Style: Quote,Noto Sans Telugu,80,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,5,90,90,0,1
 Style: Pill,Noto Sans Telugu,42,&H0030C3F5,&H0030C3F5,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 Style: HTitle,Noto Sans Telugu,92,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,5,80,80,0,1
@@ -158,7 +161,7 @@ async function render(type, card, index, workDir) {
     '-filter_complex',
     `${bgFilter}ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];[2:v]format=rgba,scale=180:180[l];` +
       `[bg][l]overlay=70:25:shortest=1,format=yuv420p[v];` +
-      `[1:a]lowpass=f=1500,aecho=0.8:0.7:60:0.3,afade=t=in:d=1.2,afade=t=out:st=${total - 1.8}:d=1.8,pan=stereo|c0=c0|c1=c0[a]`,
+      `[1:a]lowpass=f=1500,aecho=0.8:0.7:60:0.3,afade=t=in:d=0.25,afade=t=out:st=${total - 0.25}:d=0.25,pan=stereo|c0=c0|c1=c0[a]`,
     '-map', '[v]', '-map', '[a]', '-t', String(total),
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out,
   ]);
