@@ -58,7 +58,7 @@ jobs:
         run: |
           git config user.name "insta-autopost-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add telugu-posted.json 2>/dev/null || exit 0
+          git add telugu-posted.json assets/voice 2>/dev/null || exit 0
           git diff --cached --quiet || (git commit -m "Log posted Telugu story" && git pull --rebase -q && git push)
 
       # Instagram tokens expire after 60 days. This extends it every run and, if a GH_PAT

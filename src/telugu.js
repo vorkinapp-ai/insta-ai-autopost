@@ -118,6 +118,8 @@ function assFile(story, cues, total, storyEnd) {
     `Dialogue: 1,${ts(0)},${ts(total)},Brand,,0,0,0,,{\\pos(620,95)}${BRAND_TE}`,
     `Dialogue: 1,${ts(0)},${ts(total)},BrandSub,,0,0,0,,{\\pos(620,170)}${BRAND_EN}  •  TELUGU KATHALU`,
     `Dialogue: 1,${ts(0)},${ts(storyEnd)},Title,,0,0,0,,${esc(story.title)}`,
+    // Hook: stop the scroll in the first seconds.
+    `Dialogue: 3,${ts(0)},${ts(3)},Hook,,0,0,0,,{\\fad(0,300)\\pos(540,560)\\t(0,400,\\fscx112\\fscy112)\\t(400,800,\\fscx100\\fscy100)}చివరి వరకు చూడండి`,
     // Progress bar along the bottom fills up over the whole video.
     `Dialogue: 0,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&HFFFFFF&\\1a&HB0&}${box(0, 0, 1080, 16)}{\\p0}`,
     `Dialogue: 1,${ts(0)},${ts(total)},Shape,,0,0,0,,{\\an7\\pos(0,1904)\\p1\\1c&H30C3F5&\\fscx0\\t(0,${ms},\\fscx100)}${box(0, 0, 1080, 16)}{\\p0}`,
@@ -141,6 +143,7 @@ Style: Brand,Noto Sans Telugu,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0
 Style: BrandSub,Noto Sans Telugu,30,&H0030C3F5,&H0030C3F5,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,0,0,5,0,0,0,1
 Style: Shape,Noto Sans Telugu,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 Style: Handle,Noto Sans Telugu,40,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,2,80,80,70,1
+Style: Hook,Noto Sans Telugu,88,&H0030C3F5,&H0030C3F5,&H00000000,&H90000000,1,0,0,0,100,100,0,0,3,0,0,5,0,0,0,1
 Style: EndBig,Noto Sans Telugu,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,3,5,80,80,160,1
 Style: EndCta,Noto Sans Telugu,58,&H0030C3F5,&H0030C3F5,&H00000000,&H80000000,1,0,0,0,100,100,4,0,1,3,2,5,80,80,-140,1
 Style: EndSmall,Noto Sans Telugu,46,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,5,80,80,-290,1
@@ -152,32 +155,44 @@ ${lines.join('\n')}
 `;
 }
 
+const SPEED = 1.12; // slightly faster narration keeps viewers watching (pitch unchanged)
+const END_CARD = 2.8; // seconds; short so it doesn't drag down average watch %
+
 async function render(story, n, workDir) {
-  const audio = path.join(workDir, 'voice.mp3');
-  console.log(`  voice (${VOICE}, ~${estCredits(story)} credits)…`);
+  // Raw voice is kept in the repo (committed by the workflow) so each story's narration is paid for once.
+  const audio = path.join(root, 'assets/voice', `${story.id}.mp3`);
+  await mkdir(path.dirname(audio), { recursive: true });
+  const legacy = path.join(workDir, 'voice.mp3');
+  if (!existsSync(audio) && existsSync(legacy)) await writeFile(audio, await readFile(legacy));
+  console.log(`  voice (${VOICE}, ${existsSync(audio) ? 'cached, 0' : `~${estCredits(story)}`} credits)…`);
   await narrate(story, audio);
-  const voiceLen = await duration(audio);
-  const storyEnd = voiceLen + 0.8;
-  const outro = path.join(root, 'assets/audio/outro-te.mp3');
-  const total = storyEnd + (await duration(outro)) + 1.0;
-  const cues = await timings(story, audio, voiceLen);
+  const fast = path.join(workDir, 'voice-fast.wav');
+  const sped = await ff(['-y', '-i', audio, '-af', `atempo=${SPEED},aresample=48000`, fast]);
+  if (sped.code !== 0) throw new Error(`ffmpeg atempo failed:\n${sped.err.slice(-800)}`);
+  const voiceLen = await duration(fast);
+  const storyEnd = voiceLen + 0.4;
+  const total = storyEnd + END_CARD;
+  const cues = await timings(story, fast, voiceLen);
   const assPath = path.join(workDir, 'captions.ass');
   await writeFile(assPath, assFile(story, cues, total, storyEnd));
   const [c0, c1] = PALETTES[n % PALETTES.length];
+  // Quiet A-minor pad under the narration (free, no copyright).
+  const pad = [220, 261.63, 329.63, 440].map((f, i) => `${(0.05 - i * 0.009).toFixed(3)}*sin(2*PI*${f}*t)`).join('+');
   const out = path.join(workDir, 'final.mp4');
   console.log('  rendering video…');
   const { code, err } = await ff([
     '-y', '-f', 'lavfi', '-i', `gradients=s=1080x1920:c0=${c0}:c1=${c1}:speed=0.015:d=${total}:r=30`,
-    '-i', audio, '-i', outro, '-loop', '1', '-i', LOGO,
+    '-i', fast, '-f', 'lavfi', '-i', `aevalsrc='(${pad})*(0.75+0.25*sin(2*PI*0.15*t))':s=48000:d=${total}`, '-loop', '1', '-i', LOGO,
     '-filter_complex', `[0:v]ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];` +
       `[3:v]format=rgba,split[l1][l2];[l1]scale=180:180[ls];[l2]scale=520:520,fade=t=in:st=${storyEnd}:d=0.4:alpha=1[lb];` +
       `[bg][ls]overlay=70:25:shortest=1[t1];[t1][lb]overlay=(W-w)/2:430:enable='gte(t,${storyEnd})',format=yuv420p[v];` +
-      `[1:a]aresample=48000,apad=whole_dur=${storyEnd}[s];[2:a]aresample=48000[o];[s][o]concat=n=2:v=0:a=1,apad,atrim=0:${total}[a]`,
+      `[1:a]apad,atrim=0:${total}[vo];[2:a]lowpass=f=1400,afade=t=in:d=1,afade=t=out:st=${total - 1.5}:d=1.5[m];` +
+      `[vo][m]amix=inputs=2:normalize=0:duration=first,pan=stereo|c0=c0|c1=c0[a]`,
     '-map', '[v]', '-map', '[a]', '-t', String(total),
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-movflags', '+faststart', out,
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', out,
   ]);
   if (code !== 0) throw new Error(`ffmpeg failed:\n${err.slice(-1500)}`);
-  return out;
+  return { out, seconds: total };
 }
 
 async function main() {
@@ -202,7 +217,7 @@ async function main() {
   await mkdir(workDir, { recursive: true });
 
   console.log(`Story ${story.id}: ${story.title}${flag('--dry-run') ? ' [dry run]' : ''}`);
-  const video = await render(story, n, workDir);
+  const { out: video, seconds } = await render(story, n, workDir);
   console.log(`  ${video}`);
   if (flag('--dry-run')) return;
 
@@ -211,7 +226,7 @@ async function main() {
   const videoUrl = await hostVideo(video, `telugu-${story.id}.mp4`);
   console.log(`  hosted at ${videoUrl}`);
   const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption, videoUrl });
-  log.push({ id: story.id, mediaId, permalink, postedAt: new Date().toISOString() });
+  log.push({ id: story.id, mediaId, permalink, seconds: Math.round(seconds), postedAt: new Date().toISOString() });
   await writeFile(LOG, JSON.stringify(log, null, 2) + '\n');
   console.log(`Posted! ${permalink || mediaId}`);
 }

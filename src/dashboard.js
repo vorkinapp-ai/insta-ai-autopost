@@ -29,15 +29,23 @@ async function safe(fn, fallback) {
 
 async function collect() {
   const stories = JSON.parse(await readFile(path.join(root, 'telugu-stories/stories.json'), 'utf8'));
+  const readLog = async (f) => safe(async () => JSON.parse(await readFile(path.join(root, f), 'utf8')), []);
+  const [storyLog, cardLog] = await Promise.all([readLog('telugu-posted.json'), readLog('cards-posted.json')]);
   const account = await ig('me?fields=username,followers_count,follows_count,media_count');
   const media = (await ig('me/media?fields=id,caption,like_count,comments_count,timestamp,permalink,media_product_type&limit=100')).data || [];
   const metrics = 'views,reach,likes,comments,shares,saved';
   const posts = await Promise.all(
     media.map(async (m) => {
       const ins = await safe(() => ig(`${m.id}/insights?metric=${metrics}`), {});
-      const v = Object.fromEntries((ins.data || []).map((d) => [d.name, d.values?.[0]?.value ?? 0]));
+      const watch = await safe(() => ig(`${m.id}/insights?metric=ig_reels_avg_watch_time`), {});
+      const v = Object.fromEntries([...(ins.data || []), ...(watch.data || [])].map((d) => [d.name, d.values?.[0]?.value ?? 0]));
       const story = stories.find((s) => m.caption?.startsWith(s.caption.slice(0, 25)));
-      return { ...m, ...v, title: story?.title || (m.caption || '').split('\n')[0].slice(0, 40), category: story?.category || '—', storyId: story?.id };
+      const kind = story ? 'story' : m.caption?.startsWith('Health Tip') ? 'health' : 'quote';
+      const logged = storyLog.find((e) => e.mediaId === m.id) || cardLog.find((e) => e.mediaId === m.id);
+      const seconds = logged?.seconds || { story: 41, health: 13, quote: 9 }[kind];
+      const avgWatch = (v.ig_reels_avg_watch_time || 0) / 1000;
+      return { ...m, ...v, kind, seconds, avgWatch, watchedPct: seconds ? Math.round((avgWatch / seconds) * 100) : null,
+        title: story?.title || (m.caption || '').split('\n')[0].slice(0, 40), category: story?.category || kind, storyId: story?.id };
     }),
   );
   const postedIds = new Set(posts.map((p) => p.storyId).filter(Boolean));
@@ -65,6 +73,30 @@ function nextSlots(n) {
   d.setUTCHours(13, 30, 0, 0);
   if (d <= new Date()) d.setUTCDate(d.getUTCDate() + 1);
   for (let i = 0; i < n; i++) out.push(new Date(d.getTime() + i * 86400000));
+  return out;
+}
+
+function insights(posts) {
+  const withData = posts.filter((p) => p.avgWatch);
+  if (!withData.length) return ['Not enough data yet — Instagram needs a few hours after posting.'];
+  const out = [];
+  const byKind = {};
+  for (const p of withData) (byKind[p.kind] ||= []).push(p);
+  const avg = (a, k) => Math.round(a.reduce((x, p) => x + (p[k] || 0), 0) / a.length);
+  const rows = Object.entries(byKind).map(([k, a]) => ({ k, views: avg(a, 'views'), watched: avg(a, 'watchedPct'), n: a.length })).sort((a, b) => b.views - a.views);
+  out.push('📊 <b>By post type</b> (average): ' + rows.map((r) => `${r.k}: ${fmt(r.views)} views, ${r.watched}% watched (${r.n} post${r.n > 1 ? 's' : ''})`).join(' · '));
+  const top = [...withData].sort((a, b) => (b.views || 0) - (a.views || 0))[0];
+  out.push(`🏆 <b>Top post:</b> ${esc(top.title)} — ${fmt(top.views)} views, ${top.watchedPct}% watched.`);
+  const loops = withData.filter((p) => p.watchedPct >= 100);
+  if (loops.length) out.push(`🔁 <b>Rewatched:</b> ${loops.map((p) => esc(p.title)).join(', ')} — viewers watched more than once. Instagram strongly boosts this; short formats are winning.`);
+  const weak = withData.filter((p) => p.watchedPct < 50);
+  if (weak.length) out.push(`⚠️ <b>People leave early</b> on: ${weak.map((p) => `${esc(p.title)} (${p.watchedPct}%)`).join(', ')}. Stronger hook in the first 2 s and shorter length should help.`);
+  const hours = {};
+  for (const p of withData) { const h = new Date(p.timestamp).toLocaleString('en-IN', { hour: 'numeric', hour12: true, timeZone: 'Asia/Kolkata' }); (hours[h] ||= []).push(p.views || 0); }
+  const bestHour = Object.entries(hours).map(([h, v]) => [h, v.reduce((a, b) => a + b, 0) / v.length]).sort((a, b) => b[1] - a[1])[0];
+  if (Object.keys(hours).length > 1) out.push(`⏰ <b>Best time so far:</b> ${bestHour[0]} IST (avg ${fmt(Math.round(bestHour[1]))} views). Needs ~7 days of posts before trusting this.`);
+  const eng = withData.reduce((a, p) => a + (p.likes || 0) + (p.comments || 0) + (p.shares || 0) + (p.saved || 0), 0);
+  out.push(`❤️ <b>Engagement:</b> ${eng} likes/comments/shares/saves so far. Replying to every comment in the first hour boosts reach.`);
   return out;
 }
 
@@ -118,14 +150,19 @@ ${[['Followers', account.followers_count], ['Posts', account.media_count], ['Vie
 <div class="card kpi"><div class="v">${engagement}</div><div class="l">Engagement rate</div></div>
 </div>
 
+<h2>What's working · automatic analysis</h2>
+<div class="card">${insights(posts).map((t) => `<div style="padding:5px 0">${t}</div>`).join('')}</div>
+
 <h2>System health</h2>
 <div class="card">${health.map(([k, s, v]) => `<div style="padding:6px 0"><span class="dot ${s}"></span><b>${k}:</b> ${v}</div>`).join('')}</div>
 
 <h2>Posts (${posts.length})</h2>
-<div class="card scroll"><table><thead><tr><th>Posted (IST)</th><th>Story</th><th>Type</th><th class="n">Views</th><th style="width:20%"></th><th class="n">Reach</th><th class="n">Likes</th><th class="n">Comments</th><th class="n">Shares</th><th class="n">Saves</th><th></th></tr></thead><tbody>
+<div class="card scroll"><table><thead><tr><th>Posted (IST)</th><th>Story</th><th>Type</th><th class="n">Length</th><th class="n">Avg watch</th><th class="n">Watched</th><th class="n">Views</th><th style="width:16%"></th><th class="n">Reach</th><th class="n">Likes</th><th class="n">Comments</th><th class="n">Shares</th><th class="n">Saves</th><th></th></tr></thead><tbody>
 ${posts.map((p) => `<tr><td>${day(p.timestamp)}</td><td>${esc(p.title)}</td><td><span class="pill" style="background:${catColor[p.category] || '#64748b'}">${esc(p.category)}</span></td>
+<td class="n">${p.seconds}s</td><td class="n">${p.avgWatch ? p.avgWatch.toFixed(1) + 's' : '—'}</td>
+<td class="n" style="color:${p.watchedPct == null || !p.avgWatch ? 'inherit' : p.watchedPct >= 80 ? 'var(--ok)' : p.watchedPct >= 50 ? 'var(--warn)' : 'var(--bad)'};font-weight:600">${p.avgWatch ? p.watchedPct + '%' : '—'}</td>
 <td class="n">${fmt(p.views)}</td><td><div class="bar" style="width:${((p.views || 0) / maxViews) * 100}%"></div></td><td class="n">${fmt(p.reach)}</td><td class="n">${fmt(p.likes ?? p.like_count)}</td>
-<td class="n">${fmt(p.comments ?? p.comments_count)}</td><td class="n">${fmt(p.shares)}</td><td class="n">${fmt(p.saved)}</td><td><a href="${esc(p.permalink)}">View ↗</a></td></tr>`).join('') || '<tr><td colspan="11">No posts yet</td></tr>'}
+<td class="n">${fmt(p.comments ?? p.comments_count)}</td><td class="n">${fmt(p.shares)}</td><td class="n">${fmt(p.saved)}</td><td><a href="${esc(p.permalink)}">View ↗</a></td></tr>`).join('') || '<tr><td colspan="14">No posts yet</td></tr>'}
 </tbody></table></div>
 
 <h2>Coming up</h2>
