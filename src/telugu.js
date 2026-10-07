@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { publishVideo } from './instagram.js';
 import { hostVideo } from './host.js';
+import { tryUploadShort } from './youtube.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const STORIES = path.join(root, 'telugu-stories/stories.json');
@@ -243,7 +244,12 @@ async function main() {
   const videoUrl = await hostVideo(video, `telugu-${story.id}.mp4`);
   console.log(`  hosted at ${videoUrl}`);
   const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption, videoUrl });
-  log.push({ id: story.id, mediaId, permalink, seconds: Math.round(seconds), postedAt: new Date().toISOString() });
+  const yt = await tryUploadShort(video, {
+    title: `${story.title} | Telugu ${story.category === 'comedy' ? 'Comedy' : story.category === 'moral' ? 'Moral' : 'Motivational'} Story`,
+    description: `${story.lines.join('\n')}\n\n${story.caption}\n\n${KEYWORDS[story.category] || KEYWORDS.motivation}\n\n#Shorts ${hashtagsFor(story)}`,
+    tags: ['telugu stories', 'telugu kathalu', 'telugu moral stories', 'telugu motivation', story.category, 'modern stories'],
+  });
+  log.push({ id: story.id, mediaId, permalink, youtube: yt?.url, seconds: Math.round(seconds), postedAt: new Date().toISOString() });
   await writeFile(LOG, JSON.stringify(log, null, 2) + '\n');
   console.log(`Posted! ${permalink || mediaId}`);
 }

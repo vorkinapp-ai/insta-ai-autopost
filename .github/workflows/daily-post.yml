@@ -41,6 +41,9 @@ jobs:
           IG_GRAPH_HOST: ${{ vars.IG_GRAPH_HOST }}
           # Lets src/host.js upload the video to this repo's public "media" release for Instagram to fetch.
           GH_TOKEN: ${{ github.token }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then npm run telugu -- --dry-run; else npm run telugu; fi
 

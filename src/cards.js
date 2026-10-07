@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { publishVideo } from './instagram.js';
 import { hostVideo } from './host.js';
+import { tryUploadShort } from './youtube.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const LOG = path.join(root, 'cards-posted.json');
@@ -191,7 +192,10 @@ async function main() {
 
   const videoUrl = await hostVideo(video, `card-${card.id}.mp4`);
   const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption: TYPES[type].caption(card), videoUrl });
-  log.push({ type, id: card.id, mediaId, permalink, postedAt: new Date().toISOString() });
+  const yt = await tryUploadShort(video, type === 'health'
+    ? { title: `${card.title} – Daily Health Tip`, description: TYPES.health.caption(card).replace(/@modern\.storiez/g, 'Modern Stories') + '\n#Shorts', tags: ['health tips', 'healthy habits', 'wellness', 'daily health tip'], categoryId: '26' }
+    : { title: `${card.text.split('\n')[0]} | Telugu Quotes`, description: TYPES.quote.caption(card).replace(/@modern\.storiez/g, 'Modern Stories') + '\n#Shorts', tags: ['telugu quotes', 'telugu motivation', 'motivational quotes', 'life quotes'] });
+  log.push({ type, id: card.id, mediaId, permalink, youtube: yt?.url, postedAt: new Date().toISOString() });
   await writeFile(LOG, JSON.stringify(log, null, 2) + '\n');
   console.log(`Posted! ${permalink || mediaId}`);
 }
