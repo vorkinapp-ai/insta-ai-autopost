@@ -18,13 +18,20 @@ const STORIES = path.join(root, 'telugu-stories/stories.json');
 const LOG = path.join(root, 'telugu-posted.json');
 const FONTS = path.join(root, 'assets/fonts');
 const VOICE = process.env.TELUGU_VOICE || 'Arjun';
-// Relevant tags per category (Instagram ranks posts whose tags match the content; ~8-10 focused tags beat 30 random ones).
-const CORE_TAGS = '#telugu #telugustories #telugukathalu #telugureels #modernstoriez';
+// Instagram caps posts at 5 hashtags (more gets demoted from Explore/Reels), so: 2 category + 3 core.
+const CORE_TAGS = '#telugustories #telugukathalu #telugu';
 const CATEGORY_TAGS = {
-  motivation: '#telugumotivation #motivationaltelugu #teluguquotes #lifelessons #successstory',
-  moral: '#moralstories #neethikathalu #telugumoralstories #kidsstories #lifelessons',
-  family: '#amma #nanna #emotionalstory #familylove #teluguemotional',
-  comedy: '#telugucomedy #tenaliramakrishna #funnystories #telugufun #comedyreels',
+  motivation: '#telugumotivation #lifelessons',
+  moral: '#moralstories #neethikathalu',
+  family: '#amma #emotionalstory',
+  comedy: '#telugucomedy #tenaliramakrishna',
+};
+// Searchable words: Instagram search reads captions, so plain keywords help discovery more than extra tags.
+const KEYWORDS = {
+  motivation: 'Telugu motivational story | Telugu kathalu | life lessons in Telugu',
+  moral: 'Telugu moral story | neethi kathalu | kids stories in Telugu',
+  family: 'Telugu emotional story | amma prema | family story in Telugu',
+  comedy: 'Telugu comedy story | Tenali Ramakrishna kathalu | funny Telugu story',
 };
 const hashtagsFor = (s) => `${CATEGORY_TAGS[s.category] || CATEGORY_TAGS.motivation} ${CORE_TAGS}`;
 // Two-colour backgrounds, picked by story number so consecutive posts look different.
@@ -222,7 +229,8 @@ async function main() {
   if (flag('--dry-run')) return;
 
   console.log('  posting to Instagram…');
-  const caption = `${story.caption}\n\n👉 ఇలాంటి మరిన్ని కథల కోసం @modern.storiez ని ఫాలో అవ్వండి\n💬 మీ అభిప్రాయం కామెంట్ చేయండి | 📤 మీ ఫ్రెండ్స్‌కి షేర్ చేయండి\n\n${hashtagsFor(story)}`;
+  // "Send to someone" drives DM shares — Instagram's strongest signal for reaching non-followers.
+  const caption = `${story.caption}\n\n📤 ఈ కథ అవసరమైన ఒక్కరికి పంపండి\n👉 రోజూ ఒక కొత్త కథ కోసం @modern.storiez ని ఫాలో అవ్వండి\n\n${KEYWORDS[story.category] || KEYWORDS.motivation}\n\n${hashtagsFor(story)}`;
   const videoUrl = await hostVideo(video, `telugu-${story.id}.mp4`);
   console.log(`  hosted at ${videoUrl}`);
   const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption, videoUrl });

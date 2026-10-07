@@ -26,8 +26,9 @@ const TYPES = {
     chord: [220, 261.63, 329.63, 440],
     palette: [['0x0b1640', '0x1d3a8a'], ['0x0c1442', '0x3a2a7a'], ['0x081030', '0x26408f']],
     caption: (c) =>
-      `${c.text.replace(/\n/g, ' ')}\n\nమీకు నచ్చితే ❤️ చేయండి, మీ ఫ్రెండ్‌కి షేర్ చేయండి 📤\n👉 రోజూ ఇలాంటి మాటల కోసం @modern.storiez ని ఫాలో అవ్వండి\n\n` +
-      '#telugumotivation #teluguquotes #motivationalquotes #lifequotes #telugu #telugureels #modernstoriez',
+      `${c.text.replace(/\n/g, ' ')}\n\n📤 ఈ మాట ఎవరికి అవసరమో వాళ్ళకి పంపండి\n💬 మీకు నచ్చిన లైన్ కామెంట్ చేయండి\n👉 రోజూ ఇలాంటి మాటల కోసం @modern.storiez ని ఫాలో అవ్వండి\n\n` +
+      'Telugu motivational quotes | Telugu quotes on life | inspiration in Telugu\n\n' +
+      '#teluguquotes #telugumotivation #motivationalquotes #telugu #lifequotes',
   },
   health: {
     file: 'telugu-stories/health.json',
@@ -38,8 +39,10 @@ const TYPES = {
     palette: [['0x06303a', '0x0b5d63'], ['0x0b2a3f', '0x13607a'], ['0x072f2a', '0x0f6b57']],
     caption: (c) =>
       `Health Tip: ${c.title} 🌿\n${c.tips.map((t) => `✅ ${t}`).join('\n')}\n\n` +
-      'ℹ️ General wellness info only, not medical advice. Please consult a doctor for health concerns.\n💾 Save this for later | 👉 Follow @modern.storiez for daily tips\n\n' +
-      '#healthtips #healthylifestyle #wellness #healthyhabits #fitnesstips #dailyhealthtips #indianhealth #modernstoriez',
+      'ℹ️ General wellness info only, not medical advice. Please consult a doctor for health concerns.\n' +
+      '📤 Send this to someone who needs the reminder | 💾 Save for later\n👉 Follow @modern.storiez for a daily health tip\n\n' +
+      'Daily health tips | simple healthy habits | wellness tips India\n\n' +
+      '#healthtips #healthyhabits #wellness #healthylifestyle #fitnesstips',
   },
 };
 

@@ -1,0 +1,35 @@
+name: Reply to comments
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # every 30 minutes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: engage
+  cancel-in-progress: true
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Reply to new comments
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: node src/engage.js
+      - name: Save reply log
+        if: success()
+        run: |
+          git config user.name "insta-autopost-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add engaged.json 2>/dev/null || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "Log comment replies" -q && git pull --rebase -q && git push -q

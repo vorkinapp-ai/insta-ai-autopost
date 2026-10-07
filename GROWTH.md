@@ -15,3 +15,11 @@ Check `npm run dashboard` → "What's working" and the **Watched** column after 
 
 ## Data so far (day 1, 0 followers — treat as early signals)
 - Quote (9 s): ~2× rewatch, most views. Story (41 s, no hook): 30% watched → led to the changes above.
+
+## Updated after researching Instagram's 2026 ranking (Oct 2026)
+- **Max 5 hashtags** — Instagram demotes posts with more from Explore/Reels. All captions now use exactly 5.
+- **Sends per reach** (DM shares) is the #1 signal for reaching non-followers → every caption asks to *send* it to someone.
+- **Search keywords** in plain words in every caption (Instagram search reads captions).
+- **Comment replies** every 30 min (`src/engage.js`), varied wording + a follow-up question.
+- **Originality**: Instagram favours real human content in 2026. Biggest future upgrade: your own voice or face.
+- **Trial Reels** (test on non-followers first) unlock around 1,000 followers — add then.

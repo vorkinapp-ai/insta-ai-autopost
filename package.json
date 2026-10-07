@@ -15,7 +15,8 @@
     "validate": "node --env-file-if-exists=.env src/validate.js",
     "telugu": "node --env-file-if-exists=.env src/telugu.js",
     "dashboard": "node --env-file-if-exists=.env src/dashboard.js",
-    "cards": "node --env-file-if-exists=.env src/cards.js"
+    "cards": "node --env-file-if-exists=.env src/cards.js",
+    "engage": "node --env-file-if-exists=.env src/engage.js"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.0.0",
