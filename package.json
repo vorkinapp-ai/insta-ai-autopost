@@ -19,7 +19,8 @@
     "engage": "node --env-file-if-exists=.env src/engage.js",
     "scripts-sheet": "node src/scripts-sheet.js",
     "voice-sync": "node src/scripts-sheet.js && git add assets/voice/own telugu-stories/SCRIPTS.md && (git diff --cached --quiet && echo 'No new recordings.' || (git commit -q -m 'Add voice recordings' && git pull --rebase -q && git push -q && echo 'Recordings uploaded \u2014 they will be used automatically.'))",
-    "youtube-auth": "node src/youtube-auth.js"
+    "youtube-auth": "node src/youtube-auth.js",
+    "deals-page": "node src/deals-page.js"
   },
   "dependencies": {
     "@runwayml/sdk": "^3.0.0",

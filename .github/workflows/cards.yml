@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       type:
-        description: 'quote or health'
+        description: 'quote, health or deal'
         default: quote
       dry_run:
         description: 'Generate video only, do not post'
@@ -59,6 +59,7 @@ jobs:
         run: |
           git config user.name "insta-autopost-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add cards-posted.json assets/photos 2>/dev/null || exit 0
+          [ "${{ inputs.type }}" = "deal" ] && npm run deals-page
+          git add cards-posted.json assets/photos assets/voice docs 2>/dev/null || exit 0
           git diff --cached --quiet && exit 0
           git commit -m "Log posted card (+ new photo)" && git pull --rebase -q && git push

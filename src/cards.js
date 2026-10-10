@@ -31,6 +31,16 @@ const TYPES = {
       'Telugu motivational quotes | Telugu quotes on life | inspiration in Telugu\n\n' +
       '#teluguquotes #telugumotivation #motivationalquotes #telugu #lifequotes',
   },
+  deal: {
+    file: 'telugu-stories/deals.json',
+    seconds: 8,
+    voiceText: (c) => `${c.te}. ${c.store} లో, ${c.price}. లింక్ బయోలో ఉంది.`,
+    palette: [['0x5b0f1f', '0xb4530a'], ['0x4a0d2e', '0xa3361c'], ['0x3b0a45', '0x9a3412']],
+    caption: (c) =>
+      `🛍️ ${c.te}\n${c.title} · ${c.price} (${c.store})\n\n👆 లింక్ బయోలో ఉంది → "Today's Deals"\n📤 షాపింగ్ చేసే ఫ్రెండ్‌కి పంపండి\n\n` +
+      '#ad · Affiliate link — we may earn a small commission at no extra cost to you. Prices can change.\n\n' +
+      '#ad #dealsoftheday #festivesale #onlineshoppingindia #telugu',
+  },
   health: {
     file: 'telugu-stories/health.json',
     seconds: 11,
@@ -86,6 +96,17 @@ function assFor(type, card, total, revealAt) {
       ev(1, reveal, total, 'Punch', `{\\fad(250,0)\\pos(540,1060)\\t(0,300,\\fscx108\\fscy108)\\t(300,600,\\fscx100\\fscy100)}${esc(rest.join('\n'))}`),
       ev(1, reveal, total, 'Shape', `{\\an7\\pos(440,1200)\\p1\\1c&H30C3F5&\\fad(250,0)}${box(0, 0, 200, 6)}{\\p0}`),
     ];
+  } else if (type === 'deal') {
+    body = [
+      ev(1, 0, total, 'Pill', '{\\pos(540,330)}TODAY\'S DEAL  •  ' + esc(card.store.toUpperCase())),
+      ev(1, 0, total, 'Ad', '{\\an9\\pos(1040,262)}#ad'),
+      // Deal picture is overlaid by ffmpeg between y=400 and y=912.
+      ev(1, 0.2, total, 'DealTitle', `{\\fad(250,0)\\pos(540,1080)}${esc(card.te)}`),
+      ev(1, 0.6, total, 'DealPrice', `{\\fad(250,0)\\pos(540,1270)\\t(0,300,\\fscx110\\fscy110)\\t(300,600,\\fscx100\\fscy100)}${esc(card.price)}`),
+      ev(1, 1.0, total, 'Shape', `{\\an7\\pos(290,1420)\\p1\\1c&H30C3F5&\\fad(250,0)}${box(0, 0, 500, 110)}{\\p0}`),
+      ev(2, 1.0, total, 'Bio', '{\\fad(250,0)\\pos(540,1475)}LINK IN BIO'),
+      ev(1, 1.2, total, 'Note', '{\\pos(540,1600)}Affiliate link • Prices set by the store'),
+    ];
   } else {
     body = [
       // Dark translucent panel so the tips stay readable over the photo.
@@ -115,6 +136,10 @@ Style: Quote,Noto Sans Telugu,80,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0
 Style: Pill,Noto Sans Telugu,42,&H0030C3F5,&H0030C3F5,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 Style: HTitle,Noto Sans Telugu,92,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,5,80,80,0,1
 Style: Tip,Noto Sans Telugu,58,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,4,110,90,0,1
+Style: Ad,Noto Sans Telugu,40,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,3,0,0,9,0,0,0,1
+Style: DealTitle,Noto Sans Telugu,72,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,5,80,80,0,1
+Style: DealPrice,Noto Sans Telugu,96,&H0030C3F5,&H0030C3F5,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,4,2,5,0,0,0,1
+Style: Bio,Noto Sans Telugu,62,&H00401A0B,&H00401A0B,&H00000000,&H00000000,1,0,0,0,100,100,4,0,1,0,0,5,0,0,0,1
 Style: Note,Noto Sans Telugu,34,&H60FFFFFF,&H60FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 
 [Events]
@@ -123,13 +148,13 @@ ${[...common, ...body].join('\n')}
 `;
 }
 
-/** Telugu voice for a quote (Arjun, ~1 credit), kept in the repo so it's paid for once. */
-async function quoteVoice(card) {
+/** Telugu voice (Arjun, ~1 credit), kept in the repo so it's paid for once. */
+async function voiceFor(card, text) {
   const file = path.join(root, 'assets/voice', `${card.id}.mp3`);
   if (existsSync(file)) return file;
   await mkdir(path.dirname(file), { recursive: true });
   const task = await new RunwayML().textToSpeech
-    .create({ model: 'eleven_v4', promptText: card.text.replace(/\n/g, ' '), languageCode: 'te', voice: { type: 'runway-preset', presetId: process.env.TELUGU_VOICE || 'Arjun' } })
+    .create({ model: 'eleven_v4', promptText: text, languageCode: 'te', voice: { type: 'runway-preset', presetId: process.env.TELUGU_VOICE || 'Arjun' } })
     .waitForTaskOutput({ timeout: 5 * 60 * 1000 });
   const res = await fetch(task.output[0]);
   if (!res.ok) throw new Error(`Voice download failed: HTTP ${res.status}`);
@@ -164,14 +189,24 @@ async function photoFor(card) {
 
 async function render(type, card, index, workDir) {
   const t = TYPES[type];
-  const voice = type === 'quote' ? await quoteVoice(card) : null;
+  const voice = type === 'quote' ? await voiceFor(card, card.text.replace(/\n/g, ' '))
+    : type === 'deal' ? await voiceFor(card, t.voiceText(card)) : null;
   const voiceLen = voice ? await seconds(voice) : 0;
-  const total = voice ? Math.max(6, voiceLen + 1.6) : t.seconds;
+  const total = voice ? Math.max(type === 'deal' ? 8 : 6, voiceLen + 1.6) : t.seconds;
   // Punchline appears as the voice reaches line 2 (share of characters in line 1).
   const [first] = card.text ? card.text.split('\n') : [''];
-  const reveal = voice ? 0.3 + voiceLen * (first.length / card.text.replace(/\n/g, '').length) : null;
+  const reveal = type === 'quote' ? 0.3 + voiceLen * (first.length / card.text.replace(/\n/g, '').length) : null;
   const assPath = path.join(workDir, 'card.ass');
   await writeFile(assPath, assFor(type, card, total, reveal));
+  // Deal picture from the store's banner (if any).
+  let dealImage = null;
+  if (type === 'deal' && card.image) {
+    const res = await fetch(card.image);
+    if (res.ok) {
+      dealImage = path.join(workDir, 'deal.png');
+      await writeFile(dealImage, Buffer.from(await res.arrayBuffer()));
+    }
+  }
   const [c0, c1] = t.palette[index % t.palette.length];
   // Background: slow zoom on the photo, or a moving gradient.
   const bgInput = t.photo
@@ -181,15 +216,18 @@ async function render(type, card, index, workDir) {
     ? `[0:v]scale=1296:2304:force_original_aspect_ratio=increase,crop=1296:2304,zoompan=z='min(zoom+0.0005,1.15)':d=${Math.ceil(total * 30)}:s=1080x1920:fps=30,eq=brightness=-0.06,`
     : '[0:v]';
   // Soft chord pad with a slow swell; quiet so it sits under any music viewers may have on.
-  const pad = t.chord.map((f, i) => `${(0.07 - i * 0.012).toFixed(3)}*sin(2*PI*${f}*t)`).join('+');
+  const pad = (t.chord || [220]).map((f, i) => `${(0.07 - i * 0.012).toFixed(3)}*sin(2*PI*${f}*t)`).join('+');
   const out = path.join(workDir, 'final.mp4');
   const { code, err } = await ff([
     '-y', ...bgInput,
     ...(voice ? ['-i', voice] : ['-f', 'lavfi', '-i', `aevalsrc='(${pad})*(0.75+0.25*sin(2*PI*0.2*t))':s=48000:d=${total}`]),
     '-loop', '1', '-i', LOGO,
+    ...(dealImage ? ['-loop', '1', '-i', dealImage] : []),
     '-filter_complex',
     `${bgFilter}ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];[2:v]format=rgba,scale=180:180[l];` +
-      `[bg][l]overlay=70:25:shortest=1,format=yuv420p[v];` +
+      (dealImage
+        ? `[bg][l]overlay=70:25:shortest=1[t1];[3:v]scale=960:512:force_original_aspect_ratio=decrease,format=rgba[di];[t1][di]overlay=(W-w)/2:400:shortest=1,format=yuv420p[v];`
+        : `[bg][l]overlay=70:25:shortest=1,format=yuv420p[v];`) +
       (voice
         ? `[1:a]aresample=48000,adelay=300|300,apad,atrim=0:${total},pan=stereo|c0=c0|c1=c0[a]`
         : `[1:a]lowpass=f=1500,aecho=0.8:0.7:60:0.3,afade=t=in:d=0.25,afade=t=out:st=${total - 0.25}:d=0.25,pan=stereo|c0=c0|c1=c0[a]`),
@@ -226,7 +264,7 @@ async function main() {
 
   const videoUrl = await hostVideo(video, `card-${card.id}.mp4`);
   const { mediaId, permalink } = await publishVideo(video, { mediaType: 'REELS', caption: TYPES[type].caption(card), videoUrl });
-  const yt = await tryUploadShort(video, type === 'health'
+  const yt = type === 'deal' ? null : await tryUploadShort(video, type === 'health'
     ? { title: `${card.title} – Daily Health Tip`, description: TYPES.health.caption(card).replace(/@modern\.storiez/g, 'Modern Stories') + '\n#Shorts', tags: ['health tips', 'healthy habits', 'wellness', 'daily health tip'], categoryId: '26' }
     : { title: `${card.text.split('\n')[0]} | Telugu Quotes`, description: TYPES.quote.caption(card).replace(/@modern\.storiez/g, 'Modern Stories') + '\n#Shorts', tags: ['telugu quotes', 'telugu motivation', 'motivational quotes', 'life quotes'] });
   log.push({ type, id: card.id, mediaId, permalink, youtube: yt?.url, postedAt: new Date().toISOString() });
@@ -235,6 +273,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(`Failed: ${e.message}`);
+  console.error(`Failed: ${e.message}`, process.env.DEBUG ? e.stack : "");
   process.exitCode = 1;
 });
