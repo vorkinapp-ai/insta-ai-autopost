@@ -220,8 +220,7 @@ async function render(story, n, workDir) {
     '-filter_complex', `[0:v]ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];` +
       `[3:v]format=rgba,split[l1][l2];[l1]scale=180:180[ls];[l2]scale=520:520,fade=t=in:st=${storyEnd}:d=0.4:alpha=1[lb];` +
       `[bg][ls]overlay=70:25:shortest=1[t1];[t1][lb]overlay=(W-w)/2:430:enable='gte(t,${storyEnd})',format=yuv420p[v];` +
-      `[1:a]apad,atrim=0:${total}[vo];[2:a]lowpass=f=1400,afade=t=in:d=1,afade=t=out:st=${total - 1.5}:d=1.5[m];` +
-      `[vo][m]amix=inputs=2:normalize=0:duration=first,pan=stereo|c0=c0|c1=c0[a]`,
+      `[1:a]apad,atrim=0:${total},pan=stereo|c0=c0|c1=c0[a]`,
     '-map', '[v]', '-map', '[a]', '-t', String(total),
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', out,
   ]);
@@ -244,10 +243,12 @@ async function main() {
     return;
   }
 
-  // --if-due: skip if a story was already posted in the last 3 h (protects against two schedulers firing).
+  // --if-due: at most one story per IST day, never between 11 PM and 7 AM (GitHub's cron fires hours late).
+  const istDay = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const istHour = Number(new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }));
   const last = log.at(-1)?.postedAt;
-  if (flag('--if-due') && last && Date.now() - new Date(last).getTime() < 3 * 3600_000) {
-    return console.log(`Skipped: a story was already posted at ${last}.`);
+  if (flag('--if-due') && ((last && istDay(last) === istDay(Date.now())) || istHour >= 23 || istHour < 7)) {
+    return console.log(`Skipped: already posted today (${last}) or quiet hours.`);
   }
   const story = opt('--id') ? stories.find((s) => s.id === opt('--id')) : stories.find((s) => !done.has(s.id));
   if (!story) return console.log('No Telugu stories left in the queue.');

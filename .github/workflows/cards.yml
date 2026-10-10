@@ -1,10 +1,7 @@
-# schedules re-registered 2026-10-07 after repo was made public
+# Started by the Mac at 8 AM / 1 PM IST (~/.modernstories/trigger.sh); no GitHub cron (it ran hours late).
 name: Daily cards
 
 on:
-  schedule:
-    - cron: '30 2 * * *' # 8:00 AM IST → Telugu motivational quote (free)
-    - cron: '30 7 * * *' # 1:00 PM IST → English health tip with photo (5 credits, once per tip)
   workflow_dispatch:
     inputs:
       type:

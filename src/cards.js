@@ -64,7 +64,7 @@ const ts = (t) => `0:${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).t
 const esc = (t) => t.replace(/[{}]/g, '').replace(/\n/g, '\\N');
 const box = (x1, y1, x2, y2) => `m ${x1} ${y1} l ${x2} ${y1} l ${x2} ${y2} l ${x1} ${y2}`;
 
-function assFor(type, card, total) {
+function assFor(type, card, total, revealAt) {
   const ms = Math.round(total * 1000);
   const ev = (layer, start, end, style, text) => `Dialogue: ${layer},${ts(start)},${ts(end)},${style},,0,0,0,,${text}`;
   const common = [
@@ -79,7 +79,7 @@ function assFor(type, card, total) {
   let body;
   if (type === 'quote') {
     const [first, ...rest] = card.text.split('\n');
-    const reveal = total * 0.42; // punchline lands late → viewers loop back to take it in
+    const reveal = revealAt ?? total * 0.42; // punchline lands late → viewers loop back to take it in
     body = [
       ev(1, 0, total, 'QuoteMark', '{\\pos(540,620)}"'),
       ev(1, 0, total, 'Quote', `{\\pos(540,900)}${esc(first)}`),
@@ -123,6 +123,26 @@ ${[...common, ...body].join('\n')}
 `;
 }
 
+/** Telugu voice for a quote (Arjun, ~1 credit), kept in the repo so it's paid for once. */
+async function quoteVoice(card) {
+  const file = path.join(root, 'assets/voice', `${card.id}.mp3`);
+  if (existsSync(file)) return file;
+  await mkdir(path.dirname(file), { recursive: true });
+  const task = await new RunwayML().textToSpeech
+    .create({ model: 'eleven_v4', promptText: card.text.replace(/\n/g, ' '), languageCode: 'te', voice: { type: 'runway-preset', presetId: process.env.TELUGU_VOICE || 'Arjun' } })
+    .waitForTaskOutput({ timeout: 5 * 60 * 1000 });
+  const res = await fetch(task.output[0]);
+  if (!res.ok) throw new Error(`Voice download failed: HTTP ${res.status}`);
+  await writeFile(file, Buffer.from(await res.arrayBuffer()));
+  return file;
+}
+
+async function seconds(file) {
+  const { err } = await ff(['-i', file]);
+  const m = err.match(/Duration: (\d+):(\d+):([\d.]+)/);
+  return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+}
+
 /** One vertical photo per card, generated once and kept in workDir (5 credits with gen4_image at 720p). */
 async function photoFor(card) {
   // Kept in the repo (committed by the workflow) so each photo is only ever paid for once.
@@ -144,9 +164,14 @@ async function photoFor(card) {
 
 async function render(type, card, index, workDir) {
   const t = TYPES[type];
-  const total = t.seconds;
+  const voice = type === 'quote' ? await quoteVoice(card) : null;
+  const voiceLen = voice ? await seconds(voice) : 0;
+  const total = voice ? Math.max(6, voiceLen + 1.6) : t.seconds;
+  // Punchline appears as the voice reaches line 2 (share of characters in line 1).
+  const [first] = card.text ? card.text.split('\n') : [''];
+  const reveal = voice ? 0.3 + voiceLen * (first.length / card.text.replace(/\n/g, '').length) : null;
   const assPath = path.join(workDir, 'card.ass');
-  await writeFile(assPath, assFor(type, card, total));
+  await writeFile(assPath, assFor(type, card, total, reveal));
   const [c0, c1] = t.palette[index % t.palette.length];
   // Background: slow zoom on the photo, or a moving gradient.
   const bgInput = t.photo
@@ -160,12 +185,14 @@ async function render(type, card, index, workDir) {
   const out = path.join(workDir, 'final.mp4');
   const { code, err } = await ff([
     '-y', ...bgInput,
-    '-f', 'lavfi', '-i', `aevalsrc='(${pad})*(0.75+0.25*sin(2*PI*0.2*t))':s=48000:d=${total}`,
+    ...(voice ? ['-i', voice] : ['-f', 'lavfi', '-i', `aevalsrc='(${pad})*(0.75+0.25*sin(2*PI*0.2*t))':s=48000:d=${total}`]),
     '-loop', '1', '-i', LOGO,
     '-filter_complex',
     `${bgFilter}ass=${assPath.replace(/:/g, '\\:')}:fontsdir=${FONTS.replace(/:/g, '\\:')}[bg];[2:v]format=rgba,scale=180:180[l];` +
       `[bg][l]overlay=70:25:shortest=1,format=yuv420p[v];` +
-      `[1:a]lowpass=f=1500,aecho=0.8:0.7:60:0.3,afade=t=in:d=0.25,afade=t=out:st=${total - 0.25}:d=0.25,pan=stereo|c0=c0|c1=c0[a]`,
+      (voice
+        ? `[1:a]aresample=48000,adelay=300|300,apad,atrim=0:${total},pan=stereo|c0=c0|c1=c0[a]`
+        : `[1:a]lowpass=f=1500,aecho=0.8:0.7:60:0.3,afade=t=in:d=0.25,afade=t=out:st=${total - 0.25}:d=0.25,pan=stereo|c0=c0|c1=c0[a]`),
     '-map', '[v]', '-map', '[a]', '-t', String(total),
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out,
   ]);
@@ -179,10 +206,12 @@ async function main() {
   const cards = JSON.parse(await readFile(path.join(root, TYPES[type].file), 'utf8'));
   const log = existsSync(LOG) ? JSON.parse(await readFile(LOG, 'utf8')) : [];
   const done = new Set(log.map((e) => e.id));
-  // --if-due: skip if this card type was already posted in the last 3 h (protects against two schedulers firing).
+  // --if-due: at most one card of this type per IST day, never between 11 PM and 7 AM.
+  const istDay = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const istHour = Number(new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }));
   const last = log.filter((e) => e.type === type).at(-1)?.postedAt;
-  if (args.includes('--if-due') && last && Date.now() - new Date(last).getTime() < 3 * 3600_000) {
-    return console.log(`Skipped: a ${type} was already posted at ${last}.`);
+  if (args.includes('--if-due') && ((last && istDay(last) === istDay(Date.now())) || istHour >= 23 || istHour < 7)) {
+    return console.log(`Skipped: a ${type} was already posted today (${last}) or quiet hours.`);
   }
   // Cycle back to the start once every card has been used.
   const card = opt('--id') ? cards.find((c) => c.id === opt('--id')) : cards.find((c) => !done.has(c.id)) || cards[log.filter((e) => e.type === type).length % cards.length];
